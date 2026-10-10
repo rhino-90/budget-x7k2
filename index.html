@@ -190,7 +190,13 @@ function showLock(){const L=$('lock');if(!PIN){L.style.display='none';return}loc
 function drawLock(m){$('lock').innerHTML=`<div style="font-size:22px;font-weight:600;margin-bottom:6px">Mon Budget</div><div class="k" style="height:22px">${m}</div><div style="font-size:30px;letter-spacing:10px;height:46px">${'●'.repeat(buf.length)||'&nbsp;'}</div><div style="display:grid;grid-template-columns:repeat(3,76px);gap:14px">${[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map(k=>k===''?'<span></span>':`<button class="btn alt" style="margin:0;padding:18px 0;font-size:22px" onclick="pk('${k}')">${k}</button>`).join('')}</div>`}
 async function pk(k){if(k==='⌫')buf=buf.slice(0,-1);else if(buf.length<4)buf+=k;if(buf.length<4)return drawLock('');
  if(await hs(buf)===PIN){locked=false;$('lock').style.display='none';buf=''}else{buf='';drawLock('Code incorrect')}}
-async function setPin(){const a=prompt('Nouveau code à 4 chiffres');if(a===null)return;if(!/^\d{4}$/.test(a))return toast('Le code doit contenir 4 chiffres');PIN=await hs(a);try{localStorage.setItem('monbudget.pin',PIN)}catch(e){}toast('Code enregistré');render()}
+function setPin(){const o=!!PIN,f=(id,l)=>`<label>${l}</label><input id="${id}" type="password" inputmode="numeric" maxlength="4" autocomplete="off">`;
+ $('dlg').innerHTML=`<h2 style="margin-top:0">${o?'Changer le code':'Définir un code'}</h2>${o?f('p0','Code actuel'):''}${f('p1','Nouveau code (4 chiffres)')}${f('p2','Confirmer le nouveau code')}<p id="pe" class="neg" style="min-height:22px;margin:8px 0 0"></p><button class="btn" onclick="savePin()">Enregistrer</button><button class="btn alt" onclick="$('dlg').close()">Annuler</button>`;$('dlg').showModal()}
+async function savePin(){const v=id=>($(id)||{}).value||'',e=m=>{$('pe').textContent=m};
+ if(PIN&&await hs(v('p0'))!==PIN)return e('Code actuel incorrect');
+ if(!/^\d{4}$/.test(v('p1')))return e('Le code doit contenir 4 chiffres');
+ if(v('p1')!==v('p2'))return e('Les deux codes sont différents');
+ PIN=await hs(v('p1'));try{localStorage.setItem('monbudget.pin',PIN)}catch(x){}$('dlg').close();toast('Code enregistré');render()}
 function clrPin(){if(!confirm('Supprimer le code de verrouillage ?'))return;PIN=null;try{localStorage.removeItem('monbudget.pin')}catch(e){}$('lock').style.display='none';render()}
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&PIN)showLock()});
 const eur0=n=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n||0);
@@ -201,7 +207,7 @@ function repAll(){const t=S.types.map(t=>[t.l,S.accounts.filter(a=>a.type===t.k)
  S.accounts.forEach(a=>{const k=a.bank||'Sans établissement';b[k]=(b[k]||0)+bal(a)});
  const f=e=>e.filter(x=>x[1]>0).sort((x,y)=>y[1]-x[1]);
  return repBars('Répartition par Compte',f(t),'rep:compte')+repBars('Répartition par Établissement',f(Object.entries(b)),'rep:etab')}
-const FOOT='<div style="text-align:center;font-size:11px;color:var(--mute);opacity:.7;margin-top:28px">Mon Budget · v3.4 · 10 octobre 2026</div>';
+const FOOT='<div style="text-align:center;font-size:11px;color:var(--mute);opacity:.7;margin-top:28px">Mon Budget · v3.5 · 10 octobre 2026</div>';
 function askReset(){const e=S.lastExport?new Date(S.lastExport).toLocaleString('fr-FR',{dateStyle:'long',timeStyle:'short'}):null,dirty=(S.modified||0)>(S.lastExport||0);
  $('dlg').innerHTML=`<h2 style="margin-top:0;color:var(--neg)">Tout effacer ?</h2>
 <p style="margin-top:0">Seront supprimés <b>sur cet appareil</b> : ${S.accounts.length} compte(s), ${S.tx.length} transaction(s), ${S.rec.length} récurrence(s), ${S.goals.length} objectif(s), ainsi que vos budgets, catégories et types personnalisés.</p>
