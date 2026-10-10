@@ -73,7 +73,7 @@ function fix(s){s.rec=s.rec||[];s.goals=s.goals||[];s.budgets=s.budgets||{};s.de
  s.accounts.forEach(a=>{if(!s.types.some(t=>t.k===a.type))s.types.push({k:a.type,l:a.type})});
  TYPES=Object.fromEntries(s.types.map(t=>[t.k,t.l]));CAT=s.cats;return s}
 let S=fix(load()),view='dash',D=null,VM=today().slice(0,7),Q='',NP=false;
-function save(keep){if(!keep)S.modified=Date.now();try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Enregistrement impossible : stockage bloqué')}}
+function save(keep){if(!keep){S.modified=Date.now();dxSoon()}try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Enregistrement impossible : stockage bloqué')}}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),3800)}
 
 const acc=id=>S.accounts.find(a=>a.id===id);
@@ -133,7 +133,7 @@ ${d.id?'<button class="btn alt" onclick="D=null;render()">Annuler</button><butto
 <h2>Dernières transactions</h2><input type="search" placeholder="Rechercher (libellé, catégorie, compte)" value="${esc(Q)}" oninput="Q=this.value;rl()" style="margin-bottom:8px"><label style="display:flex;align-items:center;gap:8px;margin:0 0 10px;color:var(--ink);font-size:15px"><input type="checkbox" style="width:20px;height:20px" ${NP?'checked':''} onchange="NP=this.checked;rl()"> Non pointées seulement</label><div class="card" id="lst">${recent||'<div class="empty">Aucune transaction. Ajoutez la première ci-dessus.</div>'}</div>`}
 
 function vData(){return`<h1>Données</h1><p class="big" style="font-size:28px">Sauvegarde et synchronisation</p>
-<div class="card"><p style="margin-top:0">Vos données restent sur cet appareil. Pour passer de l'iPad à l'iPhone : touchez Exporter, choisissez Enregistrer dans Fichiers, dossier iCloud Drive, et remplacez mon-budget.json. Sur l'autre appareil, touchez Importer et choisissez ce même fichier.</p>
+${dxCard()}<div class="card"><p style="margin-top:0">Vos données restent sur cet appareil. Pour passer de l'iPad à l'iPhone : touchez Exporter, choisissez Enregistrer dans Fichiers, dossier iCloud Drive, et remplacez mon-budget.json. Sur l'autre appareil, touchez Importer et choisissez ce même fichier.</p>
 <p class="${(S.modified||0)>(S.lastExport||0)?'neg':'k'}" style="margin:0 0 4px">${(S.modified||0)>(S.lastExport||0)?'Modifications non exportées':'Tout est exporté'}</p>
 <button class="btn" onclick="exportJ()">Exporter vers Fichiers</button>
 <button class="btn alt" onclick="$('imp').click()">Importer depuis Fichiers</button>
@@ -143,7 +143,7 @@ function vData(){return`<h1>Données</h1><p class="big" style="font-size:28px">S
 
 const BRAND='<div class="brand"><svg width="38" height="38" viewBox="0 0 36 36" aria-hidden="true"><rect width="36" height="36" rx="9" fill="var(--acc)"/><rect x="8" y="20" width="4.5" height="8" rx="1.5" fill="#fff" opacity=".5"/><rect x="15.75" y="15" width="4.5" height="13" rx="1.5" fill="#fff" opacity=".75"/><rect x="23.5" y="9" width="4.5" height="19" rx="1.5" fill="#fff"/><circle cx="12" cy="10" r="4" fill="#F2B84B"/></svg><span>Mon Budget</span></div>';
 let banner=true;
-function vBanner(){if(!banner)return'';const m=S.modified||0,e=S.lastExport||0,dirty=m>e,d=e?new Date(e).toLocaleDateString('fr-FR',{day:'numeric',month:'long'}):null;
+function vBanner(){if(dxOn())return`<p class="k" style="margin:0 0 10px">Dropbox : ${esc(DS||'connecté')}</p>`;if(!banner)return'';const m=S.modified||0,e=S.lastExport||0,dirty=m>e,d=e?new Date(e).toLocaleDateString('fr-FR',{day:'numeric',month:'long'}):null;
  const inf=S.exportAt?`Dernier export : ${dtf(S.exportAt)}${S.exportDev?', '+S.exportDev:''}.`:"Aucun export sur cet appareil.",msg=(dirty?"Des modifications n'ont pas été exportées. ":"Données à jour. ")+inf;
  return`<div class="card" style="border-color:var(--acc)"><div style="font-weight:600;margin-bottom:2px">Synchronisation</div><div class="k" style="margin-bottom:10px">${msg} Si vous avez saisi sur un autre appareil, importez d'abord.</div>
 <div class="grid"><button class="btn alt" style="margin:0" onclick="pickImp()">Importer</button><button class="btn" style="margin:0" onclick="exportJ()">Exporter</button></div>
@@ -202,7 +202,7 @@ function repAll(){const t=S.types.map(t=>[t.l,S.accounts.filter(a=>a.type===t.k)
  S.accounts.forEach(a=>{const k=a.bank||'Sans établissement';b[k]=(b[k]||0)+bal(a)});
  const f=e=>e.filter(x=>x[1]>0).sort((x,y)=>y[1]-x[1]);
  return repBars('Répartition par Compte',f(t),'rep:compte')+repBars('Répartition par Établissement',f(Object.entries(b)),'rep:etab')}
-const FOOT='<div style="text-align:center;font-size:11px;color:var(--mute);opacity:.7;margin-top:28px">Mon Budget · v2.2 · 10 octobre 2026</div>';
+const FOOT='<div style="text-align:center;font-size:11px;color:var(--mute);opacity:.7;margin-top:28px">Mon Budget · v3.0 · 10 octobre 2026</div>';
 function askReset(){const e=S.lastExport?new Date(S.lastExport).toLocaleString('fr-FR',{dateStyle:'long',timeStyle:'short'}):null,dirty=(S.modified||0)>(S.lastExport||0);
  $('dlg').innerHTML=`<h2 style="margin-top:0;color:var(--neg)">Tout effacer ?</h2>
 <p style="margin-top:0">Seront supprimés <b>sur cet appareil</b> : ${S.accounts.length} compte(s), ${S.tx.length} transaction(s), ${S.rec.length} récurrence(s), ${S.goals.length} objectif(s), ainsi que vos budgets, catégories et types personnalisés.</p>
@@ -217,6 +217,33 @@ const devType=()=>{const u=navigator.userAgent||'';return/iPhone/.test(u)?'iPhon
 const devName=()=>{try{return localStorage.getItem('monbudget.dev')||''}catch(e){return''}};
 function setDev(v){try{localStorage.setItem('monbudget.dev',v.trim())}catch(e){}toast('Nom enregistré')}
 const devLabel=()=>devType()+(devName()?' ('+devName()+')':'');
+const DK='uhpwxjjj8cb7q7c',DR='https://rhino-90.github.io/budget-x7k2/';
+let DS='',dTok=null,dExp=0,dBusy=false,dT=null;
+const dget=k=>{try{return localStorage.getItem(k)}catch(e){return null}},dset=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}};
+const dxOn=()=>!!dget('mb.dbx.r');
+const b64u=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+async function dxLogin(){const v=b64u(crypto.getRandomValues(new Uint8Array(48)));dset('mb.dbx.v',v);const c=b64u(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)));
+ location.href='https://www.dropbox.com/oauth2/authorize?'+new URLSearchParams({client_id:DK,response_type:'code',code_challenge:c,code_challenge_method:'S256',token_access_type:'offline',redirect_uri:DR})}
+async function dxTok(p){const r=await fetch('https://api.dropboxapi.com/oauth2/token',{method:'POST',body:new URLSearchParams({client_id:DK,...p})}),j=await r.json();if(!r.ok)throw new Error(j.error_description||j.error||r.status);return j}
+async function dxAccess(){if(dTok&&Date.now()<dExp)return dTok;const j=await dxTok({grant_type:'refresh_token',refresh_token:dget('mb.dbx.r')});dTok=j.access_token;dExp=Date.now()+(j.expires_in-120)*1000;return dTok}
+async function dxBack(){const c=new URLSearchParams(location.search).get('code');history.replaceState(null,'',DR);
+ try{const j=await dxTok({grant_type:'authorization_code',code:c,code_verifier:dget('mb.dbx.v'),redirect_uri:DR});dset('mb.dbx.r',j.refresh_token);dset('mb.dbx.v',null);dTok=j.access_token;dExp=Date.now()+(j.expires_in-120)*1000;toast('Dropbox connecté');dxSync()}catch(e){toast('Connexion Dropbox échouée : '+e.message)}}
+function dxSet(m){DS=m;if(view==='dash'||view==='data')render()}
+function dxSoon(){if(!dxOn())return;clearTimeout(dT);dT=setTimeout(()=>dBusy?dxSoon():dxSync(),4000)}
+async function dxSync(){if(!dxOn()||dBusy)return;dBusy=true;dxSet('synchronisation…');
+ try{const t=await dxAccess();let j=null;
+  const r=await fetch('https://content.dropboxapi.com/2/files/download',{method:'POST',headers:{Authorization:'Bearer '+t,'Dropbox-API-Arg':JSON.stringify({path:'/mon-budget.json'})}});
+  if(r.ok)j=JSON.parse(await r.text());else if(r.status!==409)throw new Error('lecture '+r.status);
+  if(!(j&&j.exportAt&&j.exportAt===S.dbxRemote&&(S.modified||0)<=(S.lastExport||0))){
+   if(j&&Array.isArray(j.accounts)&&Array.isArray(j.tx)){if(!S.tx.length&&!S.modified)S=fix({accounts:j.accounts,tx:j.tx,types:j.types,cats:j.cats,rec:j.rec,goals:j.goals,budgets:j.budgets,del:j.del,modified:j.modified||0});else merge(j);genRec()}
+   const ea=Date.now();S.lastExport=S.modified||ea;S.exportAt=ea;S.exportDev=devLabel()+' via Dropbox';S.dbxRemote=ea;save(true);
+   const u=await fetch('https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{Authorization:'Bearer '+t,'Dropbox-API-Arg':JSON.stringify({path:'/mon-budget.json',mode:'overwrite',mute:true}),'Content-Type':'application/octet-stream'},body:JSON.stringify({version:1,...S},null,1)});
+   if(!u.ok)throw new Error('écriture '+u.status)}
+  dxSet('synchronisé à '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}))}
+ catch(e){dxSet('erreur : '+e.message)}
+ dBusy=false}
+function dxOut(){if(!confirm("Se déconnecter de Dropbox ? Vos données restent sur cet appareil."))return;dset('mb.dbx.r',null);dTok=null;DS='';render()}
+function dxCard(){const on=dxOn();return`<div class="card"><div style="font-weight:600;margin-bottom:4px">Dropbox</div><p class="k" style="margin:0 0 10px">${on?'Connecté, '+esc(DS||'en attente')+'. Synchronisation automatique à l\'ouverture et après chaque saisie.':"Synchronise vos données entre appareils, dans un dossier réservé à l'app de votre Dropbox."}</p>${on?'<button class="btn" onclick="dxSync()">Synchroniser maintenant</button><button class="btn alt del" onclick="dxOut()">Se déconnecter</button>':'<button class="btn" onclick="dxLogin()">Se connecter à Dropbox</button>'}</div>`}
 function vSet(){const x='style="width:auto;margin:0;padding:10px 14px"';
  const rT=(t,i)=>`<div class="row"><input value="${esc(t.l)}" onchange="renT(${i},this.value)">${t.k==='courant'?'':`<button class="btn alt del" ${x} onclick="delT(${i})">✕</button>`}</div>`;
  const rC=(k,c,i)=>`<div class="row"><input value="${esc(c)}" onchange="renC('${k}',${i},this.value)">${k==='depense'?`<input type="number" inputmode="decimal" placeholder="Budget €" value="${S.budgets[c]||''}" onchange="setB(${i},this.value)" style="width:110px">`:''}<button class="btn alt del" ${x} onclick="delC('${k}',${i})">✕</button></div>`;
@@ -276,7 +303,8 @@ function importJ(f){if(!f)return;const r=new FileReader();r.onload=()=>{try{cons
  if(!S.tx.length){S=fix({accounts:j.accounts,tx:j.tx,types:j.types,cats:j.cats,rec:j.rec,goals:j.goals,budgets:j.budgets,del:j.del,modified:j.modified||0,lastExport:j.modified||0,lastImportAt:j.exportAt||0});save(true);toast('Import réussi. '+org)}
  else{if(!confirm(org+`Fusionner ce fichier (${j.tx.length} transactions) avec les données de cet appareil ? Rien n'est écrasé : les éléments manquants sont ajoutés.`))return;merge(j);S.lastImportAt=j.exportAt||0;save();toast('Fusion réussie : pensez à exporter')}
  banner=false;genRec();render()}catch(e){toast('Fichier invalide : choisissez un export Mon Budget')}};r.readAsText(f)}
-showLock();genRec();render();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)dxSync()});
+showLock();genRec();render();if(new URLSearchParams(location.search).get('code'))dxBack();else dxSync();
 </script>
 </body>
 </html>
