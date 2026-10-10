@@ -195,23 +195,12 @@ async function setPin(){const a=prompt('Nouveau code à 4 chiffres');if(a===null
 function clrPin(){if(!confirm('Supprimer le code de verrouillage ?'))return;PIN=null;try{localStorage.removeItem('monbudget.pin')}catch(e){}$('lock').style.display='none';render()}
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&PIN)showLock()});
 const eur0=n=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n||0);
-function repart(){const e=S.types.map(t=>[t.l,S.accounts.filter(a=>a.type===t.k).reduce((n,a)=>n+bal(a),0)]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]),T=e.reduce((n,x)=>n+x[1],0);
- if(!T)return'';const cx=210,R=57,SW=30,O=R+SW/2,C=2*Math.PI*R;let f0=0;
- const P=e.map((x,i)=>{const fr=x[1]/T,a=-Math.PI/2+(f0+fr/2)*2*Math.PI;f0+=fr;return{i,fr,a,v:x[1],n:x[0],s:Math.cos(a)>=0?1:0}});
- const H=Math.max(280,Math.max(P.filter(p=>p.s).length,P.filter(p=>!p.s).length)*40+40),cy=H/2;
- [0,1].forEach(s=>{const q=P.filter(p=>p.s===s).sort((a,b)=>Math.sin(a.a)-Math.sin(b.a));let prev=-1e9;q.forEach(p=>{p.y=Math.max(cy+Math.sin(p.a)*(O+30),prev+40);prev=p.y});
-  const over=q.length?q[q.length-1].y-(H-22):0;if(over>0)q.forEach(p=>p.y-=over)});
- let off=0;const arcs=P.map(p=>{const l=p.fr*C,c=`<circle r="${R}" cx="${cx}" cy="${cy}" fill="none" stroke="${COL[p.i%8]}" stroke-width="${SW}" stroke-dasharray="${l} ${C-l}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})"/>`;off+=l;return c}).join('');
- const lab=P.map(p=>{const s=p.s,x0=cx+Math.cos(p.a)*(O+3),y0=cy+Math.sin(p.a)*(O+3),xe=s?292:128,xt=s?298:122,ta=s?'start':'end',nm=p.n.length>16?p.n.slice(0,15)+'…':p.n;
-  return`<path d="M${x0.toFixed(1)} ${y0.toFixed(1)}L${xe} ${p.y.toFixed(1)}" stroke="${COL[p.i%8]}" stroke-width="1.5" fill="none"/><text x="${xt}" y="${(p.y-1).toFixed(1)}" text-anchor="${ta}" font-size="12.5" font-weight="600" fill="var(--ink)">${esc(nm)}</text><text x="${xt}" y="${(p.y+14).toFixed(1)}" text-anchor="${ta}" font-size="12" fill="var(--mute)">${eur0(p.v)} · ${(p.fr*100).toFixed(1).replace('.',',')} %</text>`}).join('');
- return`<h2>Répartition du patrimoine</h2><div class="card"><svg viewBox="0 0 420 ${H}" width="100%" style="display:block">${arcs}${lab}<text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="12" fill="var(--mute)">Total</text><text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">${eur0(T)}</text></svg></div>`}
-let RV='bar';try{RV=localStorage.getItem('monbudget.rv')||'bar'}catch(e){}
-function setRV(v){RV=v;try{localStorage.setItem('monbudget.rv',v)}catch(e){}render()}
-const rd=()=>{const e=S.types.map(t=>[t.l,S.accounts.filter(a=>a.type===t.k).reduce((n,a)=>n+bal(a),0)]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);return{e,T:e.reduce((n,x)=>n+x[1],0)}};
-function repAll(){const d=rd();if(!d.T)return'';
- const seg=`<div class="seg" style="margin-bottom:10px"><button class="${RV==='bar'?'on':''}" onclick="setRV('bar')">Barres</button><button class="${RV==='ring'?'on':''}" onclick="setRV('ring')">Anneau</button></div>`;
- if(RV==='ring')return repart().replace('<div class="card">','<div class="card">'+seg);
- return`<h2>Répartition du patrimoine</h2><div class="card">${seg}`+d.e.map((x,i)=>`<div style="padding:7px 0"><div class="row" style="border:0;padding:0"><span>${esc(x[0])}</span><span><b style="font-weight:600">${eur0(x[1])}</b> <span class="k">· ${(x[1]/d.T*100).toFixed(1).replace('.',',')} %</span></span></div><div class="bar" style="height:12px"><i style="width:${x[1]/d.T*100}%;background:${COL[i%8]}"></i></div></div>`).join('')+'</div>'}
+function repBars(title,e){const T=e.reduce((n,x)=>n+x[1],0);if(!T)return'';
+ return`<h2>${title}</h2><div class="card">`+e.map((x,i)=>`<div style="padding:7px 0"><div class="row" style="border:0;padding:0"><span>${esc(x[0])}</span><span><b style="font-weight:600">${eur0(x[1])}</b> <span class="k">· ${(x[1]/T*100).toFixed(1).replace('.',',')} %</span></span></div><div class="bar" style="height:12px"><i style="width:${x[1]/T*100}%;background:${COL[i%8]}"></i></div></div>`).join('')+'</div>'}
+function repAll(){const t=S.types.map(t=>[t.l,S.accounts.filter(a=>a.type===t.k).reduce((n,a)=>n+bal(a),0)]),b={};
+ S.accounts.forEach(a=>{const k=a.bank||'Sans établissement';b[k]=(b[k]||0)+bal(a)});
+ const f=e=>e.filter(x=>x[1]>0).sort((x,y)=>y[1]-x[1]);
+ return repBars('Répartition par Compte',f(t))+repBars('Répartition par Établissement',f(Object.entries(b)))}
 function vSet(){const x='style="width:auto;margin:0;padding:10px 14px"';
  const rT=(t,i)=>`<div class="row"><input value="${esc(t.l)}" onchange="renT(${i},this.value)">${t.k==='courant'?'':`<button class="btn alt del" ${x} onclick="delT(${i})">✕</button>`}</div>`;
  const rC=(k,c,i)=>`<div class="row"><input value="${esc(c)}" onchange="renC('${k}',${i},this.value)">${k==='depense'?`<input type="number" inputmode="decimal" placeholder="Budget €" value="${S.budgets[c]||''}" onchange="setB(${i},this.value)" style="width:110px">`:''}<button class="btn alt del" ${x} onclick="delC('${k}',${i})">✕</button></div>`;
