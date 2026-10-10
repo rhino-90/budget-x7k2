@@ -15,6 +15,7 @@ html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "Avenir N
 main{max-width:720px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(env(safe-area-inset-bottom,0px) + 96px)}
 .lnk{border:0;background:none;color:var(--acc);font:inherit;font-size:14px;padding:4px 0;width:auto}
 .btn:disabled{opacity:.4}
+.hd{touch-action:none;-webkit-user-select:none;user-select:none;flex:none;font-size:24px;line-height:1;color:var(--mute);padding:6px 10px 6px 0;cursor:grab}
 .pt{border:0;background:none;font-size:22px;color:var(--acc);padding:0 6px 0 0;width:auto;line-height:1}
 .brand{display:flex;align-items:center;gap:10px;margin:0 0 16px;font-size:22px;font-weight:600;letter-spacing:-.01em}
 h1{font-size:15px;font-weight:600;color:var(--mute);margin:0 0 4px}
@@ -69,7 +70,7 @@ const $=id=>document.getElementById(id);
 function load(){try{const s=JSON.parse(localStorage.getItem(K));if(s&&Array.isArray(s.accounts)&&Array.isArray(s.tx))return s}catch(e){}
  return{accounts:[{id:uid(),name:'Compte courant',bank:'Ma banque',type:'courant',initial:0},{id:uid(),name:'Livret A',bank:'Ma banque',type:'livret',initial:0,cap:22950},{id:uid(),name:'LDDS',bank:'Ma banque',type:'livret',initial:0,cap:12000}],tx:[]}}
 let TYPES,CAT;
-function fix(s){s.rec=s.rec||[];s.goals=s.goals||[];s.budgets=s.budgets||{};s.del=s.del||[];s.types=s.types||Object.entries(TYPES0).map(([k,l])=>({k,l}));s.cats=s.cats||JSON.parse(JSON.stringify(CAT0));['depense','revenu'].forEach(k=>(s.cats[k]||(s.cats[k]=[])).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'})));
+function fix(s){s.rec=s.rec||[];s.goals=s.goals||[];s.budgets=s.budgets||{};s.del=s.del||[];s.types=s.types||Object.entries(TYPES0).map(([k,l])=>({k,l}));{const ci=s.types.findIndex(t=>t.k==='courant');if(ci>0)s.types.unshift(s.types.splice(ci,1)[0])}s.cats=s.cats||JSON.parse(JSON.stringify(CAT0));['depense','revenu'].forEach(k=>(s.cats[k]||(s.cats[k]=[])).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'})));
  s.accounts.forEach(a=>{if(!s.types.some(t=>t.k===a.type))s.types.push({k:a.type,l:a.type})});
  TYPES=Object.fromEntries(s.types.map(t=>[t.k,t.l]));CAT=s.cats;return s}
 let S=fix(load()),view='dash',D=null,VM=today().slice(0,7),Q='',NP=false;
@@ -200,7 +201,7 @@ function repAll(){const t=S.types.map(t=>[t.l,S.accounts.filter(a=>a.type===t.k)
  S.accounts.forEach(a=>{const k=a.bank||'Sans établissement';b[k]=(b[k]||0)+bal(a)});
  const f=e=>e.filter(x=>x[1]>0).sort((x,y)=>y[1]-x[1]);
  return repBars('Répartition par Compte',f(t),'rep:compte')+repBars('Répartition par Établissement',f(Object.entries(b)),'rep:etab')}
-const FOOT='<div style="text-align:center;font-size:11px;color:var(--mute);opacity:.7;margin-top:28px">Mon Budget · v3.3 · 10 octobre 2026</div>';
+const FOOT='<div style="text-align:center;font-size:11px;color:var(--mute);opacity:.7;margin-top:28px">Mon Budget · v3.4 · 10 octobre 2026</div>';
 function askReset(){const e=S.lastExport?new Date(S.lastExport).toLocaleString('fr-FR',{dateStyle:'long',timeStyle:'short'}):null,dirty=(S.modified||0)>(S.lastExport||0);
  $('dlg').innerHTML=`<h2 style="margin-top:0;color:var(--neg)">Tout effacer ?</h2>
 <p style="margin-top:0">Seront supprimés <b>sur cet appareil</b> : ${S.accounts.length} compte(s), ${S.tx.length} transaction(s), ${S.rec.length} récurrence(s), ${S.goals.length} objectif(s), ainsi que vos budgets, catégories et types personnalisés.</p>
@@ -242,11 +243,19 @@ async function dxSync(){if(!dxOn()||dBusy)return;dBusy=true;dxSet('synchronisati
  dBusy=false}
 function dxOut(){if(!confirm("Se déconnecter de Dropbox ? Vos données restent sur cet appareil."))return;dset('mb.dbx.r',null);dTok=null;DS='';render()}
 function dxCard(){const on=dxOn();return`<div class="card"><div style="font-weight:600;margin-bottom:4px">Dropbox</div><p class="k" style="margin:0 0 10px">${on?'Connecté, '+esc(DS||'en attente')+'. Synchronisation automatique à l\'ouverture et après chaque saisie.':"Synchronise vos données entre appareils, dans un dossier réservé à l'app de votre Dropbox."}</p>${on?'<button class="btn" onclick="dxSync()">Synchroniser maintenant</button><button class="btn alt del" onclick="dxOut()">Se déconnecter</button>':'<button class="btn" onclick="dxLogin()">Se connecter à Dropbox</button>'}</div>`}
+let DG=null;
+document.addEventListener('pointerdown',e=>{const h=e.target.closest&&e.target.closest('.hd');if(!h)return;e.preventDefault();DG={row:h.closest('.row'),box:h.closest('.card')};DG.row.style.opacity='.5';DG.row.style.background='var(--bg)';try{h.setPointerCapture(e.pointerId)}catch(x){}});
+document.addEventListener('pointermove',e=>{if(!DG)return;if(e.clientY>innerHeight-130)scrollBy(0,14);else if(e.clientY<130)scrollBy(0,-14);
+ const rows=[...DG.box.querySelectorAll('.row[data-k]')].filter(r=>r!==DG.row&&r.dataset.k!=='courant');let b=null;
+ for(const r of rows){const q=r.getBoundingClientRect();if(e.clientY<q.top+q.height/2){b=r;break}}
+ if(b)DG.box.insertBefore(DG.row,b);else if(rows.length)rows[rows.length-1].after(DG.row)});
+const dgEnd=ok=>{if(!DG)return;const ks=[...DG.box.querySelectorAll('.row[data-k]')].map(r=>r.dataset.k);DG=null;if(ok){S.types.sort((a,b)=>ks.indexOf(a.k)-ks.indexOf(b.k));ch()}else render()};
+document.addEventListener('pointerup',()=>dgEnd(true));document.addEventListener('pointercancel',()=>dgEnd(false));
 function vSet(){const x='style="width:auto;margin:0;padding:10px 14px"';
- const rT=(t,i)=>`<div class="row"><input value="${esc(t.l)}" onchange="renT(${i},this.value)">${t.k==='courant'?'':`<button class="btn alt del" ${x} onclick="delT(${i})">✕</button>`}</div>`;
+ const rT=(t,i)=>`<div class="row" data-k="${t.k}">${t.k==='courant'?'<span style="width:34px;flex:none"></span>':`<span class="hd" data-i="${i}">⠿</span>`}<input value="${esc(t.l)}" onchange="renT(${i},this.value)">${t.k==='courant'?'':`<button class="btn alt del" ${x} onclick="delT(${i})">✕</button>`}</div>`;
  const rC=(k,c,i)=>`<div class="row"><input value="${esc(c)}" onchange="renC('${k}',${i},this.value)">${k==='depense'?`<input type="number" inputmode="decimal" placeholder="Budget €" value="${S.budgets[c]||''}" onchange="setB(${i},this.value)" style="width:110px">`:''}<button class="btn alt del" ${x} onclick="delC('${k}',${i})">✕</button></div>`;
  const add=(id,fn,ph)=>`<div class="row"><input id="${id}" placeholder="${ph}"><button class="btn" ${x} onclick="${fn}">Ajouter</button></div>`;
- return`<h1>Réglages</h1><p class="k">Modifiez un nom puis validez au clavier. Renommer une catégorie met aussi à jour vos transactions existantes.</p>
+ return`<h1>Réglages</h1><p class="k">Modifiez un nom puis validez au clavier. Faites glisser ⠿ pour réordonner les types de compte (Compte courant reste en premier). Renommer une catégorie met aussi à jour vos transactions existantes.</p>
 <h2>Types de compte</h2><div class="card">${S.types.map(rT).join('')}${add('nt','addT()','Nouveau type (ex : Immobilier)')}</div>
 <h2>Catégories de dépenses</h2><div class="card">${S.cats.depense.map((c,i)=>rC('depense',c,i)).join('')}${add('nd',"addC('depense','nd')",'Nouvelle catégorie')}</div>
 <h2>Catégories de revenus</h2><div class="card">${S.cats.revenu.map((c,i)=>rC('revenu',c,i)).join('')}${add('nr',"addC('revenu','nr')",'Nouvelle catégorie')}</div>
