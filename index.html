@@ -177,7 +177,7 @@ async function exportCSV(){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""'
 let CL=new Set();try{CL=new Set(JSON.parse(localStorage.getItem('monbudget.cl')||'[]'))}catch(e){}
 function scl(){try{localStorage.setItem('monbudget.cl',JSON.stringify([...CL]))}catch(e){}render()}
 function tc(t){CL.has(t)?CL.delete(t):CL.add(t);scl()}
-function tall(f){CL=f?new Set(Object.keys(TYPES)):new Set();scl()}
+function tall(f){CL=f?new Set([...Object.keys(TYPES),'rep:compte','rep:etab']):new Set();scl()}
 let PIN=null,buf='',locked=false;try{PIN=localStorage.getItem('monbudget.pin')}catch(e){}
 const balP=a=>(+a.initial||0)+S.tx.reduce((n,t)=>t.ok?n+delta(t,a.id):n,0);
 function tog(id){const t=S.tx.find(x=>x.id===id);if(t){t.ok=!t.ok;save();view==='tx'?rl():render()}}
@@ -195,13 +195,14 @@ async function setPin(){const a=prompt('Nouveau code à 4 chiffres');if(a===null
 function clrPin(){if(!confirm('Supprimer le code de verrouillage ?'))return;PIN=null;try{localStorage.removeItem('monbudget.pin')}catch(e){}$('lock').style.display='none';render()}
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&PIN)showLock()});
 const eur0=n=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n||0);
-function repBars(title,e){const T=e.reduce((n,x)=>n+x[1],0);if(!T)return'';
- return`<h2>${title}</h2><div class="card">`+e.map((x,i)=>`<div style="padding:7px 0"><div class="row" style="border:0;padding:0"><span>${esc(x[0])}</span><span><b style="font-weight:600">${eur0(x[1])}</b> <span class="k">· ${(x[1]/T*100).toFixed(1).replace('.',',')} %</span></span></div><div class="bar" style="height:12px"><i style="width:${x[1]/T*100}%;background:${COL[i%8]}"></i></div></div>`).join('')+'</div>'}
+function repBars(title,e,k){const T=e.reduce((n,x)=>n+x[1],0);if(!T)return'';
+ const h=`<h2 onclick="tc('${k}')" style="cursor:pointer;display:flex;justify-content:space-between"><span>${CL.has(k)?'▸':'▾'} ${title}</span><span class="k" style="font-weight:400">${CL.has(k)?'Afficher':'Réduire'}</span></h2>`;if(CL.has(k))return h;
+ return h+`<div class="card">`+e.map((x,i)=>`<div style="padding:7px 0"><div class="row" style="border:0;padding:0"><span>${esc(x[0])}</span><span><b style="font-weight:600">${eur0(x[1])}</b> <span class="k">· ${(x[1]/T*100).toFixed(1).replace('.',',')} %</span></span></div><div class="bar" style="height:12px"><i style="width:${x[1]/T*100}%;background:${COL[i%8]}"></i></div></div>`).join('')+'</div>'}
 function repAll(){const t=S.types.map(t=>[t.l,S.accounts.filter(a=>a.type===t.k).reduce((n,a)=>n+bal(a),0)]),b={};
  S.accounts.forEach(a=>{const k=a.bank||'Sans établissement';b[k]=(b[k]||0)+bal(a)});
  const f=e=>e.filter(x=>x[1]>0).sort((x,y)=>y[1]-x[1]);
- return repBars('Répartition par Compte',f(t))+repBars('Répartition par Établissement',f(Object.entries(b)))}
-const FOOT='<div style="text-align:center;font-size:11px;color:var(--mute);opacity:.7;margin-top:28px">Mon Budget · v2.1 · 10 octobre 2026</div>';
+ return repBars('Répartition par Compte',f(t),'rep:compte')+repBars('Répartition par Établissement',f(Object.entries(b)),'rep:etab')}
+const FOOT='<div style="text-align:center;font-size:11px;color:var(--mute);opacity:.7;margin-top:28px">Mon Budget · v2.2 · 10 octobre 2026</div>';
 function askReset(){const e=S.lastExport?new Date(S.lastExport).toLocaleString('fr-FR',{dateStyle:'long',timeStyle:'short'}):null,dirty=(S.modified||0)>(S.lastExport||0);
  $('dlg').innerHTML=`<h2 style="margin-top:0;color:var(--neg)">Tout effacer ?</h2>
 <p style="margin-top:0">Seront supprimés <b>sur cet appareil</b> : ${S.accounts.length} compte(s), ${S.tx.length} transaction(s), ${S.rec.length} récurrence(s), ${S.goals.length} objectif(s), ainsi que vos budgets, catégories et types personnalisés.</p>
