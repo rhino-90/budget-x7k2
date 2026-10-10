@@ -69,7 +69,7 @@ const $=id=>document.getElementById(id);
 function load(){try{const s=JSON.parse(localStorage.getItem(K));if(s&&Array.isArray(s.accounts)&&Array.isArray(s.tx))return s}catch(e){}
  return{accounts:[{id:uid(),name:'Compte courant',bank:'Ma banque',type:'courant',initial:0},{id:uid(),name:'Livret A',bank:'Ma banque',type:'livret',initial:0,cap:22950},{id:uid(),name:'LDDS',bank:'Ma banque',type:'livret',initial:0,cap:12000}],tx:[]}}
 let TYPES,CAT;
-function fix(s){s.rec=s.rec||[];s.goals=s.goals||[];s.budgets=s.budgets||{};s.del=s.del||[];s.types=s.types||Object.entries(TYPES0).map(([k,l])=>({k,l}));s.cats=s.cats||JSON.parse(JSON.stringify(CAT0));
+function fix(s){s.rec=s.rec||[];s.goals=s.goals||[];s.budgets=s.budgets||{};s.del=s.del||[];s.types=s.types||Object.entries(TYPES0).map(([k,l])=>({k,l}));s.cats=s.cats||JSON.parse(JSON.stringify(CAT0));['depense','revenu'].forEach(k=>(s.cats[k]||(s.cats[k]=[])).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'})));
  s.accounts.forEach(a=>{if(!s.types.some(t=>t.k===a.type))s.types.push({k:a.type,l:a.type})});
  TYPES=Object.fromEntries(s.types.map(t=>[t.k,t.l]));CAT=s.cats;return s}
 let S=fix(load()),view='dash',D=null,VM=today().slice(0,7),Q='',NP=false;
@@ -200,7 +200,7 @@ function repAll(){const t=S.types.map(t=>[t.l,S.accounts.filter(a=>a.type===t.k)
  S.accounts.forEach(a=>{const k=a.bank||'Sans établissement';b[k]=(b[k]||0)+bal(a)});
  const f=e=>e.filter(x=>x[1]>0).sort((x,y)=>y[1]-x[1]);
  return repBars('Répartition par Compte',f(t),'rep:compte')+repBars('Répartition par Établissement',f(Object.entries(b)),'rep:etab')}
-const FOOT='<div style="text-align:center;font-size:11px;color:var(--mute);opacity:.7;margin-top:28px">Mon Budget · v3.2 · 10 octobre 2026</div>';
+const FOOT='<div style="text-align:center;font-size:11px;color:var(--mute);opacity:.7;margin-top:28px">Mon Budget · v3.3 · 10 octobre 2026</div>';
 function askReset(){const e=S.lastExport?new Date(S.lastExport).toLocaleString('fr-FR',{dateStyle:'long',timeStyle:'short'}):null,dirty=(S.modified||0)>(S.lastExport||0);
  $('dlg').innerHTML=`<h2 style="margin-top:0;color:var(--neg)">Tout effacer ?</h2>
 <p style="margin-top:0">Seront supprimés <b>sur cet appareil</b> : ${S.accounts.length} compte(s), ${S.tx.length} transaction(s), ${S.rec.length} récurrence(s), ${S.goals.length} objectif(s), ainsi que vos budgets, catégories et types personnalisés.</p>
