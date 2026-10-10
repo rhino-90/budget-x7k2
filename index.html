@@ -13,6 +13,8 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "Avenir Next",-apple-system,"SF Pro Text",system-ui,sans-serif;font-variant-numeric:tabular-nums}
 main{max-width:720px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(env(safe-area-inset-bottom,0px) + 96px)}
+.lnk{border:0;background:none;color:var(--acc);font:inherit;font-size:14px;padding:4px 0;width:auto}
+.pt{border:0;background:none;font-size:22px;color:var(--acc);padding:0 6px 0 0;width:auto;line-height:1}
 .brand{display:flex;align-items:center;gap:10px;margin:0 0 16px;font-size:22px;font-weight:600;letter-spacing:-.01em}
 h1{font-size:15px;font-weight:600;color:var(--mute);margin:0 0 4px}
 h2{font-size:17px;margin:24px 0 10px}
@@ -50,6 +52,7 @@ dialog::backdrop{background:#0008}
 <main id="app"></main>
 <nav id="nav"></nav>
 <dialog id="dlg"></dialog>
+<div id="lock" style="display:none;position:fixed;inset:0;z-index:99;background:var(--bg);flex-direction:column;align-items:center;justify-content:center"></div>
 <div id="toast"></div>
 <script>
 const K='monbudget.v1';
@@ -65,10 +68,10 @@ const $=id=>document.getElementById(id);
 function load(){try{const s=JSON.parse(localStorage.getItem(K));if(s&&Array.isArray(s.accounts)&&Array.isArray(s.tx))return s}catch(e){}
  return{accounts:[{id:uid(),name:'Compte courant',bank:'Ma banque',type:'courant',initial:0},{id:uid(),name:'Livret A',bank:'Ma banque',type:'livret',initial:0,cap:22950},{id:uid(),name:'LDDS',bank:'Ma banque',type:'livret',initial:0,cap:12000}],tx:[]}}
 let TYPES,CAT;
-function fix(s){s.rec=s.rec||[];s.budgets=s.budgets||{};s.del=s.del||[];s.types=s.types||Object.entries(TYPES0).map(([k,l])=>({k,l}));s.cats=s.cats||JSON.parse(JSON.stringify(CAT0));
+function fix(s){s.rec=s.rec||[];s.goals=s.goals||[];s.budgets=s.budgets||{};s.del=s.del||[];s.types=s.types||Object.entries(TYPES0).map(([k,l])=>({k,l}));s.cats=s.cats||JSON.parse(JSON.stringify(CAT0));
  s.accounts.forEach(a=>{if(!s.types.some(t=>t.k===a.type))s.types.push({k:a.type,l:a.type})});
  TYPES=Object.fromEntries(s.types.map(t=>[t.k,t.l]));CAT=s.cats;return s}
-let S=fix(load()),view='dash',D=null,VM=today().slice(0,7),Q='';
+let S=fix(load()),view='dash',D=null,VM=today().slice(0,7),Q='',NP=false;
 function save(keep){if(!keep)S.modified=Date.now();try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Enregistrement impossible : stockage bloqué')}}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200)}
 
@@ -104,14 +107,14 @@ ${mnav()}<div class="grid"><div class="card"><div class="k">Revenus du mois</div
 <div class="card"><div class="k">Reste à vivre</div><div class="v ${s.rav<0?'neg':''}">${eur(s.rav)}</div></div></div>
 ${s.daily===null?'':`<div class="card"><div class="k">Reste à vivre par jour, jusqu'à fin de mois</div><div class="v ${s.daily<0?'neg':''}">${eur(s.daily)}</div></div>`}
 <h2>Dépenses par catégorie</h2><div class="card">${donut(s.cats)}</div>
-${bud(s.cats)}<h2>Patrimoine sur 12 mois</h2><div class="card">${line()}</div>`}
+${bud(s.cats)}${gl()}<h2>Patrimoine sur 12 mois</h2><div class="card">${line()}</div>`}
 
-function vAcc(){let h='<h1>Comptes et avoirs</h1><p class="big">'+eur(total())+'</p>';
+function vAcc(){let h='<h1>Comptes et avoirs</h1><p class="big">'+eur(total())+'</p><div class="row" style="border:0;padding:0 0 4px;justify-content:flex-end;gap:18px"><button class="lnk" onclick="tall(1)">Tout replier</button><button class="lnk" onclick="tall(0)">Tout déplier</button></div>';
  Object.keys(TYPES).forEach(t=>{const L=S.accounts.filter(a=>a.type===t);if(!L.length)return;
   const banks=[...new Set(L.map(a=>a.bank||'Sans établissement'))];
-  h+=`<h2 style="display:flex;justify-content:space-between;gap:10px"><span>${esc(TYPES[t])}</span><span>${eur(L.reduce((s,a)=>s+bal(a),0))}</span></h2>`+banks.map(b=>`<div class="card"><div class="tag">${esc(b)}</div>`+L.filter(a=>(a.bank||'Sans établissement')===b).map(a=>{const bl=bal(a);
+  h+=`<h2 onclick="tc('${t}')" style="display:flex;justify-content:space-between;gap:10px;cursor:pointer"><span>${CL.has(t)?'▸':'▾'} ${esc(TYPES[t])} <small class="k" style="font-weight:400">(${L.length})</small></span><span>${eur(L.reduce((s,a)=>s+bal(a),0))}</span></h2>`+(CL.has(t)?'':banks.map(b=>`<div class="card"><div class="tag">${esc(b)}</div>`+L.filter(a=>(a.bank||'Sans établissement')===b).map(a=>{const bl=bal(a);
    const g=a.cap?`<div class="bar"><i style="width:${Math.max(0,Math.min(100,bl/a.cap*100))}%"></i></div><small>${eur(bl)} sur ${eur(a.cap)}, il reste ${eur(Math.max(0,a.cap-bl))}</small>`:'';
-   return`<div class="row" onclick="editAcc('${a.id}')" style="display:block"><div class="row" style="border:0;padding:0"><span>${esc(a.name)}</span><span class="${bl<0?'neg':''}">${eur(bl)}</span></div>${g}</div>`}).join('')+'</div>').join('')});
+   return`<div class="row" onclick="editAcc('${a.id}')" style="display:block"><div class="row" style="border:0;padding:0"><span>${esc(a.name)}<small>Pointé : ${eur(balP(a))}</small></span><span class="${bl<0?'neg':''}">${eur(bl)}</span></div>${g}</div>`}).join('')+'</div>').join(''))});
  return h+'<button class="btn" onclick="editAcc()">Ajouter un compte</button>'}
 
 function newD(){return{id:null,type:'depense',date:today(),acc:S.accounts[0]?.id,to:S.accounts[1]?.id,amount:'',cat:CAT.depense[0],note:''}}
@@ -126,7 +129,7 @@ ${d.type==='virement'?`<label>Compte crédité</label><select onchange="D.to=thi
 <label>Libellé ou note</label><input type="text" value="${esc(d.note)}" oninput="D.note=this.value">
 ${d.id?'':`<label style="display:flex;align-items:center;gap:10px;color:var(--ink);font-size:16px"><input type="checkbox" style="width:22px;height:22px" ${d.rep?'checked':''} onchange="D.rep=this.checked"> Répéter chaque mois</label>`}<button class="btn" onclick="saveTx()">${d.id?'Enregistrer les modifications':'Ajouter la transaction'}</button>
 ${d.id?'<button class="btn alt" onclick="D=null;render()">Annuler</button><button class="btn alt del" onclick="delTx()">Supprimer</button>':''}</div>
-<h2>Dernières transactions</h2><input type="search" placeholder="Rechercher (libellé, catégorie, compte)" value="${esc(Q)}" oninput="Q=this.value;rl()" style="margin-bottom:10px"><div class="card" id="lst">${recent||'<div class="empty">Aucune transaction. Ajoutez la première ci-dessus.</div>'}</div>`}
+<h2>Dernières transactions</h2><input type="search" placeholder="Rechercher (libellé, catégorie, compte)" value="${esc(Q)}" oninput="Q=this.value;rl()" style="margin-bottom:8px"><label style="display:flex;align-items:center;gap:8px;margin:0 0 10px;color:var(--ink);font-size:15px"><input type="checkbox" style="width:20px;height:20px" ${NP?'checked':''} onchange="NP=this.checked;rl()"> Non pointées seulement</label><div class="card" id="lst">${recent||'<div class="empty">Aucune transaction. Ajoutez la première ci-dessus.</div>'}</div>`}
 
 function vData(){return`<h1>Données</h1><p class="big" style="font-size:28px">Sauvegarde et synchronisation</p>
 <div class="card"><p style="margin-top:0">Vos données restent sur cet appareil. Pour passer de l'iPad à l'iPhone : touchez Exporter, choisissez Enregistrer dans Fichiers, dossier iCloud Drive, et remplacez mon-budget.json. Sur l'autre appareil, touchez Importer et choisissez ce même fichier.</p>
@@ -147,8 +150,8 @@ function vBanner(){if(!banner)return'';const m=S.modified||0,e=S.lastExport||0,d
 <button class="btn alt" style="border:0;margin-top:6px;color:var(--mute);font-weight:400" onclick="banner=false;render()">Plus tard</button></div>`}
 function pickImp(){const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.style.display='none';i.onchange=()=>{importJ(i.files[0]);i.remove()};document.body.appendChild(i);i.click()}
 function txRows(){return S.tx.filter(mq).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,Q?100:25).map(t=>{const a=acc(t.acc),to=acc(t.to),sg=t.type==='revenu'?'+':t.type==='depense'?'−':'';
-  return`<div class="row" onclick="pick('${t.id}')"><span>${esc(t.note||t.cat||'Virement')}<small>${new Date(t.date+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} · ${esc(a?a.name:'?')}${t.type==='virement'?' → '+esc(to?to.name:'?'):''}</small></span><b class="${t.type==='revenu'?'pos':t.type==='depense'?'neg':''}">${sg}${eur(t.amount)}</b></div>`}).join('');}
-const mq=t=>{if(!Q)return true;const q=Q.toLowerCase(),a=acc(t.acc),b=acc(t.to);return[t.note,t.cat,a&&a.name,b&&b.name].some(x=>x&&x.toLowerCase().includes(q))};
+  return`<div class="row" onclick="pick('${t.id}')"><button class="pt" onclick="event.stopPropagation();tog('${t.id}')">${t.ok?'●':'○'}</button><span style="flex:1">${esc(t.note||t.cat||'Virement')}<small>${new Date(t.date+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} · ${esc(a?a.name:'?')}${t.type==='virement'?' → '+esc(to?to.name:'?'):''}</small></span><b class="${t.type==='revenu'?'pos':t.type==='depense'?'neg':''}">${sg}${eur(t.amount)}</b></div>`}).join('');}
+const mq=t=>{if(NP&&t.ok)return false;if(!Q)return true;const q=Q.toLowerCase(),a=acc(t.acc),b=acc(t.to);return[t.note,t.cat,a&&a.name,b&&b.name].some(x=>x&&x.toLowerCase().includes(q))};
 function rl(){$('lst').innerHTML=txRows()||'<div class="empty">Aucun résultat.</div>'}
 const mnav=()=>`<div class="row" style="border:0;padding:0 0 10px"><button class="btn alt" style="width:auto;margin:0;padding:8px 16px" onclick="mv(-1)">‹</button><span style="font-weight:600;text-transform:capitalize">${new Date(VM+'-15').toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}</span><button class="btn alt" style="width:auto;margin:0;padding:8px 16px" onclick="mv(1)">›</button></div>`;
 function mv(d){const x=new Date(VM+'-15');x.setMonth(x.getMonth()+d);const k=x.toLocaleDateString('sv').slice(0,7);if(k<=today().slice(0,7)){VM=k;render()}}
@@ -161,16 +164,36 @@ function genRec(){let n=0;const t0=today();S.rec.forEach(r=>{let[y,m]=r.from.spl
   const id='r_'+r.id+'_'+ym;if(!S.tx.some(t=>t.id===id)&&!S.del.includes(id)){S.tx.push({id,type:r.type,date:d,acc:r.acc,to:r.to,amount:r.amount,cat:r.cat,note:r.note});n++}
   if(++m>12){m=1;y++}}});if(n){save();toast(n+' transaction(s) récurrente(s) ajoutée(s)')}}
 function merge(j){const del=new Set([...S.del,...(j.del||[])]),ids=new Set(S.tx.map(t=>t.id));
- j.tx.forEach(t=>{if(!ids.has(t.id))S.tx.push(t)});S.tx=S.tx.filter(t=>!del.has(t.id));S.del=[...del];
+ j.tx.forEach(t=>{const l=S.tx.find(x=>x.id===t.id);if(!l)S.tx.push(t);else if(t.ok)l.ok=true});S.tx=S.tx.filter(t=>!del.has(t.id));S.del=[...del];
  const ai=new Set(S.accounts.map(a=>a.id));j.accounts.forEach(a=>{if(!ai.has(a.id))S.accounts.push(a)});
  (j.types||[]).forEach(t=>{if(!S.types.some(x=>x.k===t.k))S.types.push(t)});
  ['depense','revenu'].forEach(k=>((j.cats||{})[k]||[]).forEach(c=>{if(!S.cats[k].includes(c))S.cats[k].push(c)}));
  (j.rec||[]).forEach(r=>{if(!S.rec.some(x=>x.id===r.id))S.rec.push(r)});
- S.budgets={...(j.budgets||{}),...S.budgets};fix(S)}
+ (j.goals||[]).forEach(g=>{if(!S.goals.some(x=>x.id===g.id))S.goals.push(g)});S.budgets={...(j.budgets||{}),...S.budgets};fix(S)}
 async function exportCSV(){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"',r=[['Date','Type','Compte','Vers','Catégorie','Libellé','Montant']];
  [...S.tx].sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>r.push([t.date,t.type,acc(t.acc)?acc(t.acc).name:'',acc(t.to)?acc(t.to).name:'',t.cat,t.note,String(t.amount).replace('.',',')]));
  const f=new File(['\ufeff'+r.map(x=>x.map(q).join(';')).join('\n')],'mon-budget.csv',{type:'text/csv'});
  try{if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});else dl(f)}catch(e){if(e.name!=='AbortError')dl(f)}}
+let CL=new Set();try{CL=new Set(JSON.parse(localStorage.getItem('monbudget.cl')||'[]'))}catch(e){}
+function scl(){try{localStorage.setItem('monbudget.cl',JSON.stringify([...CL]))}catch(e){}render()}
+function tc(t){CL.has(t)?CL.delete(t):CL.add(t);scl()}
+function tall(f){CL=f?new Set(Object.keys(TYPES)):new Set();scl()}
+let PIN=null,buf='',locked=false;try{PIN=localStorage.getItem('monbudget.pin')}catch(e){}
+const balP=a=>(+a.initial||0)+S.tx.reduce((n,t)=>t.ok?n+delta(t,a.id):n,0);
+function tog(id){const t=S.tx.find(x=>x.id===id);if(t){t.ok=!t.ok;save();view==='tx'?rl():render()}}
+function gl(){if(!S.goals.length)return'';return'<h2>Objectifs</h2><div class="card">'+S.goals.map(g=>{const a=acc(g.acc),b=a?bal(a):0,p=Math.max(0,Math.min(100,b/g.target*100));let ex='';
+ if(g.date&&b<g.target){const n=new Date(),d=new Date(g.date),m=Math.max(1,(d.getFullYear()-n.getFullYear())*12+d.getMonth()-n.getMonth());ex=' · '+eur((g.target-b)/m)+'/mois'}
+ return`<div style="padding:6px 0"><div class="row" style="border:0;padding:0"><span>${esc(g.name)}</span><span>${eur(b)} / ${eur(g.target)}</span></div><div class="bar"><i style="width:${p}%;background:var(--sav)"></i></div><small class="k">${Math.round(p)} %${ex}${g.date?' · avant le '+new Date(g.date).toLocaleDateString('fr-FR'):''}</small></div>`}).join('')+'</div>'}
+function addG(){const n=$('g1').value.trim(),t=parseFloat($('g2').value);if(!n||!(t>0))return toast('Indiquez un nom et un montant cible');S.goals.push({id:uid(),name:n,target:t,acc:$('g3').value,date:$('g4').value||''});save();render()}
+function delG(i){S.goals.splice(i,1);save();render()}
+async function hs(p){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('mb:'+p));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){return btoa('mb:'+p)}}
+function showLock(){const L=$('lock');if(!PIN){L.style.display='none';return}locked=true;buf='';L.style.display='flex';drawLock('')}
+function drawLock(m){$('lock').innerHTML=`<div style="font-size:22px;font-weight:600;margin-bottom:6px">Mon Budget</div><div class="k" style="height:22px">${m}</div><div style="font-size:30px;letter-spacing:10px;height:46px">${'●'.repeat(buf.length)||'&nbsp;'}</div><div style="display:grid;grid-template-columns:repeat(3,76px);gap:14px">${[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map(k=>k===''?'<span></span>':`<button class="btn alt" style="margin:0;padding:18px 0;font-size:22px" onclick="pk('${k}')">${k}</button>`).join('')}</div>`}
+async function pk(k){if(k==='⌫')buf=buf.slice(0,-1);else if(buf.length<4)buf+=k;if(buf.length<4)return drawLock('');
+ if(await hs(buf)===PIN){locked=false;$('lock').style.display='none';buf=''}else{buf='';drawLock('Code incorrect')}}
+async function setPin(){const a=prompt('Nouveau code à 4 chiffres');if(a===null)return;if(!/^\d{4}$/.test(a))return toast('Le code doit contenir 4 chiffres');PIN=await hs(a);try{localStorage.setItem('monbudget.pin',PIN)}catch(e){}toast('Code enregistré');render()}
+function clrPin(){if(!confirm('Supprimer le code de verrouillage ?'))return;PIN=null;try{localStorage.removeItem('monbudget.pin')}catch(e){}$('lock').style.display='none';render()}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&PIN)showLock()});
 function vSet(){const x='style="width:auto;margin:0;padding:10px 14px"';
  const rT=(t,i)=>`<div class="row"><input value="${esc(t.l)}" onchange="renT(${i},this.value)">${t.k==='courant'?'':`<button class="btn alt del" ${x} onclick="delT(${i})">✕</button>`}</div>`;
  const rC=(k,c,i)=>`<div class="row"><input value="${esc(c)}" onchange="renC('${k}',${i},this.value)">${k==='depense'?`<input type="number" inputmode="decimal" placeholder="Budget €" value="${S.budgets[c]||''}" onchange="setB(${i},this.value)" style="width:110px">`:''}<button class="btn alt del" ${x} onclick="delC('${k}',${i})">✕</button></div>`;
@@ -179,7 +202,10 @@ function vSet(){const x='style="width:auto;margin:0;padding:10px 14px"';
 <h2>Types de compte</h2><div class="card">${S.types.map(rT).join('')}${add('nt','addT()','Nouveau type (ex : Immobilier)')}</div>
 <h2>Catégories de dépenses</h2><div class="card">${S.cats.depense.map((c,i)=>rC('depense',c,i)).join('')}${add('nd',"addC('depense','nd')",'Nouvelle catégorie')}</div>
 <h2>Catégories de revenus</h2><div class="card">${S.cats.revenu.map((c,i)=>rC('revenu',c,i)).join('')}${add('nr',"addC('revenu','nr')",'Nouvelle catégorie')}</div>
-<h2>Transactions récurrentes</h2><div class="card">${S.rec.length?S.rec.map((r,i)=>`<div class="row"><span>${esc(r.note||r.cat||'Virement')}<small>le ${r.day} de chaque mois · ${eur(r.amount)} · ${esc(acc(r.acc)?acc(r.acc).name:'?')}</small></span><button class="btn alt del" ${x} onclick="delR(${i})">✕</button></div>`).join(''):'<div class="empty">Aucune. Cochez « Répéter chaque mois » dans Saisie.</div>'}</div>`}
+<h2>Transactions récurrentes</h2><div class="card">${S.rec.length?S.rec.map((r,i)=>`<div class="row"><span>${esc(r.note||r.cat||'Virement')}<small>le ${r.day} de chaque mois · ${eur(r.amount)} · ${esc(acc(r.acc)?acc(r.acc).name:'?')}</small></span><button class="btn alt del" ${x} onclick="delR(${i})">✕</button></div>`).join(''):'<div class="empty">Aucune. Cochez « Répéter chaque mois » dans Saisie.</div>'}</div>
+<h2>Objectifs d'épargne</h2><div class="card">${S.goals.map((g,i)=>`<div class="row"><span>${esc(g.name)}<small>${eur(g.target)} · ${esc(acc(g.acc)?acc(g.acc).name:'?')}</small></span><button class="btn alt del" ${x} onclick="delG(${i})">✕</button></div>`).join('')}
+<label>Nom</label><input id="g1"><label>Montant cible (€)</label><input id="g2" type="number" inputmode="decimal"><label>Compte suivi</label><select id="g3">${S.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select><label>Date cible (facultatif)</label><input id="g4" type="date"><button class="btn" onclick="addG()">Ajouter l'objectif</button></div>
+<h2>Sécurité</h2><div class="card"><p class="k" style="margin-top:0">Un code à 4 chiffres masque l'app à l'ouverture et quand vous la quittez. Il empêche un regard indiscret mais ne chiffre pas les données. Il est propre à cet appareil.</p><button class="btn" onclick="setPin()">${PIN?'Changer le code':'Définir un code'}</button>${PIN?'<button class="btn alt del" onclick="clrPin()">Supprimer le code</button>':''}</div>`}
 function ch(){save();fix(S);render()}
 function renT(i,v){v=v.trim();if(!v)return render();S.types[i].l=v;ch()}
 function delT(i){const t=S.types[i];if(S.accounts.some(a=>a.type===t.k))return toast('Des comptes utilisent ce type : changez-les d\'abord');S.types.splice(i,1);ch()}
@@ -220,11 +246,11 @@ async function exportJ(){const st=S.modified||Date.now(),f=new File([JSON.string
 function dl(f){const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download='mon-budget.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
 function importJ(f){if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);
  if(!Array.isArray(j.accounts)||!Array.isArray(j.tx))throw 0;
- if(!S.tx.length){S=fix({accounts:j.accounts,tx:j.tx,types:j.types,cats:j.cats,rec:j.rec,budgets:j.budgets,del:j.del,modified:j.modified||0,lastExport:j.modified||0});save(true);toast('Import réussi')}
+ if(!S.tx.length){S=fix({accounts:j.accounts,tx:j.tx,types:j.types,cats:j.cats,rec:j.rec,goals:j.goals,budgets:j.budgets,del:j.del,modified:j.modified||0,lastExport:j.modified||0});save(true);toast('Import réussi')}
  else{if(!confirm(`Fusionner ce fichier (${j.tx.length} transactions) avec les données de cet appareil ? Rien n'est écrasé : les éléments manquants sont ajoutés.`))return;merge(j);save();toast('Fusion réussie : pensez à exporter')}
  banner=false;genRec();render()}catch(e){toast('Fichier invalide : choisissez un export Mon Budget')}};r.readAsText(f)}
 function resetAll(){if(!confirm('Effacer toutes les données de cet appareil ? Pensez à exporter avant.'))return;try{localStorage.removeItem(K)}catch(e){}S=fix(load());D=null;render()}
-genRec();render();
+showLock();genRec();render();
 </script>
 </body>
 </html>
