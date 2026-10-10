@@ -158,18 +158,16 @@ function mv(d){const x=new Date(VM+'-15');x.setMonth(x.getMonth()+d);const k=x.t
 function bud(c){const e=Object.entries(S.budgets||{}).filter(x=>x[1]>0);if(!e.length)return'';
  return'<h2>Budgets</h2><div class="card">'+e.map(([k,b])=>{const v=c[k]||0,p=v/b*100;return`<div style="padding:6px 0"><div class="row" style="border:0;padding:0"><span>${esc(k)}</span><span class="${p>100?'neg':''}">${eur(v)} / ${eur(b)}</span></div><div class="bar"><i style="width:${Math.min(100,p)}%;background:${p>100?'var(--neg)':'var(--acc)'}"></i></div></div>`}).join('')+'</div>'}
 function setB(i,v){const c=S.cats.depense[i],n=parseFloat(v);if(n>0)S.budgets[c]=n;else delete S.budgets[c];ch()}
-function delR(i){if(!confirm('Supprimer cette récurrence ? Les transactions déjà créées sont conservées.'))return;S.rec.splice(i,1);save();render()}
+function delR(i){if(!confirm('Supprimer cette récurrence ? Les transactions déjà créées sont conservées.'))return;S.rec.splice(i,1);S.setAt=Date.now();save();render()}
 function genRec(){let n=0;const t0=today();S.rec.forEach(r=>{let[y,m]=r.from.split('-').map(Number);
  for(;;){const ym=y+'-'+String(m).padStart(2,'0'),d=ym+'-'+String(Math.min(r.day,28)).padStart(2,'0');if(d>t0)break;
   const id='r_'+r.id+'_'+ym;if(!S.tx.some(t=>t.id===id)&&!S.del.includes(id)){S.tx.push({id,type:r.type,date:d,acc:r.acc,to:r.to,amount:r.amount,cat:r.cat,note:r.note});n++}
   if(++m>12){m=1;y++}}});if(n){save();toast(n+' transaction(s) récurrente(s) ajoutée(s)')}}
 function merge(j){const del=new Set([...S.del,...(j.del||[])]),ids=new Set(S.tx.map(t=>t.id));
  j.tx.forEach(t=>{const l=S.tx.find(x=>x.id===t.id);if(!l)S.tx.push(t);else if(t.ok)l.ok=true});S.tx=S.tx.filter(t=>!del.has(t.id));S.del=[...del];
- const ai=new Set(S.accounts.map(a=>a.id));j.accounts.forEach(a=>{if(!ai.has(a.id))S.accounts.push(a)});
- (j.types||[]).forEach(t=>{if(!S.types.some(x=>x.k===t.k))S.types.push(t)});
- ['depense','revenu'].forEach(k=>((j.cats||{})[k]||[]).forEach(c=>{if(!S.cats[k].includes(c))S.cats[k].push(c)}));
- (j.rec||[]).forEach(r=>{if(!S.rec.some(x=>x.id===r.id))S.rec.push(r)});
- (j.goals||[]).forEach(g=>{if(!S.goals.some(x=>x.id===g.id))S.goals.push(g)});S.budgets={...(j.budgets||{}),...S.budgets};fix(S)}
+ const ai=new Set(S.accounts.map(a=>a.id));j.accounts.forEach(a=>{if(!ai.has(a.id)&&!del.has(a.id))S.accounts.push(a)});S.accounts=S.accounts.filter(a=>!del.has(a.id));
+ if((j.setAt||0)>(S.setAt||0)){['types','cats','rec','goals','budgets'].forEach(k=>{if(j[k])S[k]=j[k]});S.setAt=j.setAt}
+ fix(S)}
 async function exportCSV(){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"',r=[['Date','Type','Compte','Vers','Catégorie','Libellé','Montant']];
  [...S.tx].sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>r.push([t.date,t.type,acc(t.acc)?acc(t.acc).name:'',acc(t.to)?acc(t.to).name:'',t.cat,t.note,String(t.amount).replace('.',',')]));
  const f=new File(['\ufeff'+r.map(x=>x.map(q).join(';')).join('\n')],'mon-budget.csv',{type:'text/csv'});
@@ -184,8 +182,8 @@ function tog(id){const t=S.tx.find(x=>x.id===id);if(t){t.ok=!t.ok;save();view===
 function gl(){if(!S.goals.length)return'';return'<h2>Objectifs</h2><div class="card">'+S.goals.map(g=>{const a=acc(g.acc),b=a?bal(a):0,p=Math.max(0,Math.min(100,b/g.target*100));let ex='';
  if(g.date&&b<g.target){const n=new Date(),d=new Date(g.date),m=Math.max(1,(d.getFullYear()-n.getFullYear())*12+d.getMonth()-n.getMonth());ex=' · '+eur((g.target-b)/m)+'/mois'}
  return`<div style="padding:6px 0"><div class="row" style="border:0;padding:0"><span>${esc(g.name)}</span><span>${eur(b)} / ${eur(g.target)}</span></div><div class="bar"><i style="width:${p}%;background:var(--sav)"></i></div><small class="k">${Math.round(p)} %${ex}${g.date?' · avant le '+new Date(g.date).toLocaleDateString('fr-FR'):''}</small></div>`}).join('')+'</div>'}
-function addG(){const n=$('g1').value.trim(),t=parseFloat($('g2').value);if(!n||!(t>0))return toast('Indiquez un nom et un montant cible');S.goals.push({id:uid(),name:n,target:t,acc:$('g3').value,date:$('g4').value||''});save();render()}
-function delG(i){S.goals.splice(i,1);save();render()}
+function addG(){const n=$('g1').value.trim(),t=parseFloat($('g2').value);if(!n||!(t>0))return toast('Indiquez un nom et un montant cible');S.goals.push({id:uid(),name:n,target:t,acc:$('g3').value,date:$('g4').value||''});S.setAt=Date.now();save();render()}
+function delG(i){S.goals.splice(i,1);S.setAt=Date.now();save();render()}
 async function hs(p){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('mb:'+p));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){return btoa('mb:'+p)}}
 function showLock(){const L=$('lock');if(!PIN){L.style.display='none';return}locked=true;buf='';L.style.display='flex';drawLock('')}
 function drawLock(m){$('lock').innerHTML=`<div style="font-size:22px;font-weight:600;margin-bottom:6px">Mon Budget</div><div class="k" style="height:22px">${m}</div><div style="font-size:30px;letter-spacing:10px;height:46px">${'●'.repeat(buf.length)||'&nbsp;'}</div><div style="display:grid;grid-template-columns:repeat(3,76px);gap:14px">${[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map(k=>k===''?'<span></span>':`<button class="btn alt" style="margin:0;padding:18px 0;font-size:22px" onclick="pk('${k}')">${k}</button>`).join('')}</div>`}
@@ -202,12 +200,12 @@ function repAll(){const t=S.types.map(t=>[t.l,S.accounts.filter(a=>a.type===t.k)
  S.accounts.forEach(a=>{const k=a.bank||'Sans établissement';b[k]=(b[k]||0)+bal(a)});
  const f=e=>e.filter(x=>x[1]>0).sort((x,y)=>y[1]-x[1]);
  return repBars('Répartition par Compte',f(t),'rep:compte')+repBars('Répartition par Établissement',f(Object.entries(b)),'rep:etab')}
-const FOOT='<div style="text-align:center;font-size:11px;color:var(--mute);opacity:.7;margin-top:28px">Mon Budget · v3.1 · 10 octobre 2026</div>';
+const FOOT='<div style="text-align:center;font-size:11px;color:var(--mute);opacity:.7;margin-top:28px">Mon Budget · v3.2 · 10 octobre 2026</div>';
 function askReset(){const e=S.lastExport?new Date(S.lastExport).toLocaleString('fr-FR',{dateStyle:'long',timeStyle:'short'}):null,dirty=(S.modified||0)>(S.lastExport||0);
  $('dlg').innerHTML=`<h2 style="margin-top:0;color:var(--neg)">Tout effacer ?</h2>
 <p style="margin-top:0">Seront supprimés <b>sur cet appareil</b> : ${S.accounts.length} compte(s), ${S.tx.length} transaction(s), ${S.rec.length} récurrence(s), ${S.goals.length} objectif(s), ainsi que vos budgets, catégories et types personnalisés.</p>
 <p class="k">Ne seront pas touchés : le fichier mon-budget.json dans iCloud Drive, l'autre appareil et le code de verrouillage.</p>
-<p class="k">L'app revient ensuite à son état initial, avec trois comptes vides. C'est irréversible, sauf en important un export.</p>
+${dxOn()?'<p style="color:var(--neg)">Dropbox est connecté : les données seront restaurées depuis Dropbox à la prochaine synchronisation. Déconnectez Dropbox avant, et supprimez le fichier dans Dropbox si vous voulez tout effacer.</p>':''}<p class="k">L'app revient ensuite à son état initial, avec trois comptes vides. C'est irréversible, sauf en important un export.</p>
 <p style="color:${dirty||!e?'var(--neg)':'var(--ink)'}">${!e?"Vous n'avez jamais exporté vos données.":dirty?'Des modifications ont été faites depuis le dernier export ('+e+').':'Dernier export : '+e+', sans modification depuis.'}</p>
 <label>Tapez EFFACER pour confirmer</label><input id="rc" autocapitalize="characters" oninput="$('rb').disabled=this.value.trim().toUpperCase()!=='EFFACER'">
 <button class="btn" onclick="exportJ()">Exporter d'abord</button><button id="rb" class="btn alt del" disabled onclick="doReset()">Effacer définitivement</button><button class="btn alt" onclick="$('dlg').close()">Annuler</button>`;$('dlg').showModal()}
@@ -235,7 +233,7 @@ async function dxSync(){if(!dxOn()||dBusy)return;dBusy=true;dxSet('synchronisati
   const r=await fetch('https://content.dropboxapi.com/2/files/download',{method:'POST',headers:{Authorization:'Bearer '+t,'Dropbox-API-Arg':JSON.stringify({path:'/mon-budget.json'})}});
   if(r.ok)j=JSON.parse(await r.text());else if(r.status!==409)throw new Error('lecture '+r.status);
   if(!(j&&j.exportAt&&j.exportAt===S.dbxRemote&&(S.modified||0)<=(S.lastExport||0))){
-   if(j&&Array.isArray(j.accounts)&&Array.isArray(j.tx)){if(!S.tx.length&&!S.modified)S=fix({accounts:j.accounts,tx:j.tx,types:j.types,cats:j.cats,rec:j.rec,goals:j.goals,budgets:j.budgets,del:j.del,modified:j.modified||0});else merge(j);genRec()}
+   if(j&&Array.isArray(j.accounts)&&Array.isArray(j.tx)){if(!S.tx.length&&!S.modified)S=fix({accounts:j.accounts,tx:j.tx,types:j.types,cats:j.cats,rec:j.rec,goals:j.goals,budgets:j.budgets,del:j.del,setAt:j.setAt,modified:j.modified||0});else merge(j);genRec()}
    const ea=Date.now();S.lastExport=S.modified||ea;S.exportAt=ea;S.exportDev=devLabel()+' via Dropbox';S.dbxRemote=ea;save(true);
    const u=await fetch('https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{Authorization:'Bearer '+t,'Dropbox-API-Arg':JSON.stringify({path:'/mon-budget.json',mode:'overwrite',mute:true}),'Content-Type':'application/octet-stream'},body:JSON.stringify({version:1,...S},null,1)});
    if(!u.ok)throw new Error('écriture '+u.status)}
@@ -258,7 +256,7 @@ function vSet(){const x='style="width:auto;margin:0;padding:10px 14px"';
 <h2>Cet appareil</h2><div class="card"><p class="k" style="margin-top:0">Détecté : ${devType()}. Donnez-lui un nom pour le reconnaître dans les exports : iOS ne permet pas à l'app de lire le nom réel de l'appareil.</p><input value="${esc(devName())}" placeholder="Ex : iPad du salon" onchange="setDev(this.value)"></div>
 <h2>Sécurité</h2><div class="card"><p class="k" style="margin-top:0">Un code à 4 chiffres masque l'app à l'ouverture et quand vous la quittez. Il empêche un regard indiscret mais ne chiffre pas les données. Il est propre à cet appareil.</p><button class="btn" onclick="setPin()">${PIN?'Changer le code':'Définir un code'}</button>${PIN?'<button class="btn alt del" onclick="clrPin()">Supprimer le code</button>':''}</div>
 <h2 style="color:var(--neg)">Zone dangereuse</h2><div class="card"><p class="k" style="margin-top:0">Efface toutes les données de cet appareil. Une confirmation détaillée vous sera demandée.</p><button class="btn alt del" style="margin-top:0" onclick="askReset()">Effacer toutes les données…</button></div>`}
-function ch(){save();fix(S);render()}
+function ch(){S.setAt=Date.now();save();fix(S);render()}
 function renT(i,v){v=v.trim();if(!v)return render();S.types[i].l=v;ch()}
 function delT(i){const t=S.types[i];if(S.accounts.some(a=>a.type===t.k))return toast('Des comptes utilisent ce type : changez-les d\'abord');S.types.splice(i,1);ch()}
 function addT(){const v=$('nt').value.trim();if(!v)return;S.types.push({k:'t'+uid(),l:v});ch()}
@@ -274,7 +272,7 @@ function saveTx(){const a=parseFloat(String(D.amount).replace(',','.'));
  if(!(a>0))return toast('Saisissez un montant supérieur à 0');
  if(!D.acc)return toast('Créez d\'abord un compte');
  if(D.type==='virement'&&(!D.to||D.to===D.acc))return toast('Choisissez deux comptes différents');
- if(D.rep&&!D.id){const dt=D.date||today();S.rec.push({id:uid(),type:D.type,acc:D.acc,to:D.type==='virement'?D.to:null,amount:a,cat:D.type==='virement'?'':D.cat,note:D.note.trim(),day:+dt.slice(8,10),from:dt.slice(0,7)});save();genRec();D=null;render();return}
+ if(D.rep&&!D.id){const dt=D.date||today();S.rec.push({id:uid(),type:D.type,acc:D.acc,to:D.type==='virement'?D.to:null,amount:a,cat:D.type==='virement'?'':D.cat,note:D.note.trim(),day:+dt.slice(8,10),from:dt.slice(0,7)});S.setAt=Date.now();save();genRec();D=null;render();return}
  const t={id:D.id||uid(),type:D.type,date:D.date||today(),acc:D.acc,to:D.type==='virement'?D.to:null,amount:a,cat:D.type==='virement'?'':D.cat,note:D.note.trim()};
  const i=S.tx.findIndex(x=>x.id===t.id);i>=0?S.tx[i]=t:S.tx.push(t);save();toast(D.id?'Transaction modifiée':'Transaction ajoutée');D=null;render()}
 function delTx(){if(!confirm('Supprimer cette transaction ?'))return;S.del.push(D.id);S.tx=S.tx.filter(x=>x.id!==D.id);save();D=null;toast('Transaction supprimée');render()}
@@ -290,7 +288,7 @@ function saveAcc(id){const n=$('an').value.trim();if(!n)return toast('Donnez un 
  const a={id:id||uid(),name:n,bank:$('ab').value.trim(),type:$('at').value,initial:parseFloat($('ai').value)||0,cap:parseFloat($('ac').value)||0};if(!a.cap)delete a.cap;
  const i=S.accounts.findIndex(x=>x.id===a.id);i>=0?S.accounts[i]=a:S.accounts.push(a);save();$('dlg').close();render()}
 function delAcc(id){if(S.tx.some(t=>t.acc===id||t.to===id))return toast('Ce compte a des transactions : supprimez-les d\'abord');
- if(!confirm('Supprimer ce compte ?'))return;S.accounts=S.accounts.filter(a=>a.id!==id);save();$('dlg').close();render()}
+ if(!confirm('Supprimer ce compte ?'))return;S.del.push(id);S.accounts=S.accounts.filter(a=>a.id!==id);save();$('dlg').close();render()}
 
 async function exportJ(){const st=S.modified||Date.now(),ea=Date.now(),f=new File([JSON.stringify({version:1,...S,lastExport:st,exportAt:ea,exportDev:devLabel()},null,1)],'mon-budget.json',{type:'application/json'});
  try{if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});else dl(f)}catch(e){if(e.name==='AbortError')return;dl(f)}
